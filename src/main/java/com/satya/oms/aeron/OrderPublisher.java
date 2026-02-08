@@ -13,6 +13,7 @@ public class OrderPublisher {
     private static final String CHANNEL = "aeron:ipc?term-length=64k";
     private static final int STREAM_ID = 1001;
 
+
     public static void main(String[] args) throws InterruptedException {
         Aeron.Context ctx = new Aeron.Context();
 
