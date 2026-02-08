@@ -14,6 +14,12 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
+    <packaging>pom</packaging>
+
+    <modules>
+
+    </modules>
+
     <dependencies>
         <!-- Agrona -->
         <dependency>
@@ -77,6 +83,14 @@
         </dependency>
 
     </dependencies>
+
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>OMS Satya</name>
+            <url>https://maven.pkg.github.com/satyarami/oms</url>
+        </repository>
+    </distributionManagement>
 
 
 
