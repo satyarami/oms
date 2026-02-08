@@ -3,6 +3,7 @@ package com.satya.oms.core;
 import com.satya.oms.disruptor.OrderEvent;
 
 import java.util.ArrayList;
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Comparator;
 import java.util.List;
 
@@ -44,9 +45,16 @@ public class OMSOrderBook {
             } else {
                 break; // no more matches
             }
-
-
-
         }
+    }
+
+    @VisibleForTesting
+    public  List<OrderEvent> getBuyOrders() {
+        return buyOrders;
+    }
+
+    @VisibleForTesting
+    public  List<OrderEvent> getSellOrders() {
+        return sellOrders;
     }
 }
