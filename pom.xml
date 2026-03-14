@@ -200,7 +200,7 @@
                                 </systemProperty>
                             </systemProperties>
                             <arguments>
-                                <argument>${project.basedir}/sbe/order-schema.xml</argument>
+                                <argument>${project.basedir}/src/main/resources/order-schema.xml</argument>
                             </arguments>
                             <includePluginDependencies>true</includePluginDependencies>
                         </configuration>

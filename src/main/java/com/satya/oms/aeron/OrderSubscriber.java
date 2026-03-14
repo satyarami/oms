@@ -1,6 +1,8 @@
 package com.satya.oms.aeron;
 
 import com.satya.oms.disruptor.OMSCore;
+import com.satya.oms.sbe.MessageHeaderDecoder;
+import com.satya.oms.sbe.OrderDecoder;
 import io.aeron.Aeron;
 import io.aeron.Subscription;
 import io.aeron.logbuffer.FragmentHandler;
@@ -19,6 +21,8 @@ public class OrderSubscriber implements Runnable {
     private final IdleStrategy idleStrategy = new SleepingMillisIdleStrategy(1);
 
     private final OMSCore omsCore;
+    private final MessageHeaderDecoder headerDecoder = new MessageHeaderDecoder();
+    private final OrderDecoder orderDecoder = new OrderDecoder();
 
     public OrderSubscriber(Aeron aeron, OMSCore omsCore) {
         this.aeron = aeron;
@@ -39,17 +43,27 @@ public class OrderSubscriber implements Runnable {
     }
 
     private void onFragment(DirectBuffer buffer, int offset, int length, Header header) {
-        long orderId = buffer.getLong(offset);
-        int symbolId = buffer.getInt(offset + 8);
-        byte side = buffer.getByte(offset + 12);
-        long quantity = buffer.getLong(offset + 13);
-        long price = buffer.getLong(offset + 21);
-        byte state = buffer.getByte(offset + 29);
+        // Decode SBE message header first
+        headerDecoder.wrap(buffer, offset);
+        final int actingBlockLength = headerDecoder.blockLength();
+        final int actingVersion = headerDecoder.version();
+        final int headerLength = headerDecoder.encodedLength();
+
+        // Decode the Order message body after the header
+        orderDecoder.wrap(buffer, offset + headerLength, actingBlockLength, actingVersion);
+
+        long orderId    = orderDecoder.orderId();
+        long symbolId   = orderDecoder.symbolId();
+        byte side       = (byte) orderDecoder.side().value();
+        long quantity   = orderDecoder.quantity();
+        long price      = orderDecoder.price();
+        byte state      = (byte) orderDecoder.state().value();
 
         System.out.printf("Received Order: id=%d symbol=%d side=%d qty=%d price=%d state=%d%n",
                 orderId, symbolId, side, quantity, price, state);
 
-        omsCore.publish(buffer, offset); // push directly into Disruptor
+        // Pass offset + headerLength so the Disruptor receives the Order body, not the SBE header
+        omsCore.publish(buffer, offset + headerLength); // push directly into Disruptor
     }
 
     public static void main(String[] args) {

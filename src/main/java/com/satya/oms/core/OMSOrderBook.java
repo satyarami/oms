@@ -14,6 +14,8 @@ public class OMSOrderBook {
 
     // Add order to the book
     public void addOrder(OrderEvent order) {
+    	System.out.printf("XXX  Adding order: ID=%d Side=%d Qty=%d Price=%d\n",
+			order.getOrderId(), order.getSide(), order.getQuantity(), order.getPrice());
         if (order.getSide() == 0) {
             buyOrders.add(order);
             buyOrders.sort(Comparator.comparingLong(OrderEvent::getPrice).reversed());
