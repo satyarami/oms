@@ -70,4 +70,14 @@ public class OrderEvent {
     public void setBufferState(byte state) {
         encoder.state(OrderState.get((short)(state & 0xFF)));
     }
+
+    /** Updates the filledQty field. */
+    public void setBufferFilledQty(long filledQty) {
+        encoder.filledQty(filledQty);
+    }
+
+    /** Updates the remainingQty field. */
+    public void setBufferRemainingQty(long remainingQty) {
+        encoder.remainingQty(remainingQty);
+    }
 }
