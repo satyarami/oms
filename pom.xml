@@ -88,6 +88,56 @@
     </dependencies>
 
     <build>
+        <pluginManagement>
+            <plugins>
+                <!-- Tell Eclipse M2E how to handle plugins it doesn't know about -->
+                <plugin>
+                    <groupId>org.eclipse.m2e</groupId>
+                    <artifactId>lifecycle-mapping</artifactId>
+                    <version>1.0.0</version>
+                    <configuration>
+                        <lifecycleMappingMetadata>
+                            <pluginExecutions>
+                                <!-- Run SBE code generation inside Eclipse workspace build -->
+                                <pluginExecution>
+                                    <pluginExecutionFilter>
+                                        <groupId>org.codehaus.mojo</groupId>
+                                        <artifactId>exec-maven-plugin</artifactId>
+                                        <versionRange>[1.0,)</versionRange>
+                                        <goals>
+                                            <goal>java</goal>
+                                        </goals>
+                                    </pluginExecutionFilter>
+                                    <action>
+                                        <execute>
+                                            <runOnIncremental>false</runOnIncremental>
+                                            <runOnConfiguration>true</runOnConfiguration>
+                                        </execute>
+                                    </action>
+                                </pluginExecution>
+                                <!-- Register the generated-sources/sbe folder as a source root -->
+                                <pluginExecution>
+                                    <pluginExecutionFilter>
+                                        <groupId>org.codehaus.mojo</groupId>
+                                        <artifactId>build-helper-maven-plugin</artifactId>
+                                        <versionRange>[1.0,)</versionRange>
+                                        <goals>
+                                            <goal>add-source</goal>
+                                        </goals>
+                                    </pluginExecutionFilter>
+                                    <action>
+                                        <execute>
+                                            <runOnIncremental>false</runOnIncremental>
+                                            <runOnConfiguration>true</runOnConfiguration>
+                                        </execute>
+                                    </action>
+                                </pluginExecution>
+                            </pluginExecutions>
+                        </lifecycleMappingMetadata>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
             <!-- Compiler plugin configuration -->
             <plugin>
@@ -134,15 +184,23 @@
                             <systemProperties>
                                 <systemProperty>
                                     <key>sbe.output.dir</key>
-                                    <value>target/generated-sources/sbe</value>
+                                    <value>${project.build.directory}/generated-sources/sbe</value>
                                 </systemProperty>
                                 <systemProperty>
                                     <key>sbe.target.language</key>
                                     <value>Java</value>
                                 </systemProperty>
+                                <systemProperty>
+                                    <key>sbe.validation.stop.on.error</key>
+                                    <value>true</value>
+                                </systemProperty>
+                                <systemProperty>
+                                    <key>sbe.validation.warnings.fatal</key>
+                                    <value>false</value>
+                                </systemProperty>
                             </systemProperties>
                             <arguments>
-                                <argument>sbe/order-schema.xml</argument>
+                                <argument>${project.basedir}/sbe/order-schema.xml</argument>
                             </arguments>
                             <includePluginDependencies>true</includePluginDependencies>
                         </configuration>

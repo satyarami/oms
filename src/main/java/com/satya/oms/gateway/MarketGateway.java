@@ -12,7 +12,8 @@ public class MarketGateway {
      * Immediately returns ACK or partial FILL randomly.
      */
     public void sendOrder(OrderEvent order) {
-        System.out.printf("Gateway received order: ID=%d side=%d qty=%d price=%d%n",
+    	
+        System.out.printf("XXXX  Gateway received order: ID=%d side=%d qty=%d price=%d%n",
                 order.getOrderId(), order.getSide(), order.getQuantity(), order.getPrice());
 
         // Simulate random market behavior
