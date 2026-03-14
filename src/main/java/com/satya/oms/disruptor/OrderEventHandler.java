@@ -15,14 +15,14 @@ public class OrderEventHandler implements EventHandler<OrderEvent> {
         // Validation
         if (event.getQuantity() <= 0 || event.getPrice() <= 0) {
             System.out.println("Rejected invalid order: " + event.getOrderId());
-            event.setBufferState(OrderState.REJECTED);
+            event.setBufferState((byte)OrderState.REJECTED.value());
             return;
         }
 
         // Risk check
         if (event.getQuantity() > 1000) {
             System.out.println("Rejected order exceeding max qty: " + event.getOrderId());
-            event.setBufferState(OrderState.REJECTED);
+            event.setBufferState((byte)OrderState.REJECTED.value());
             return;
         }
 

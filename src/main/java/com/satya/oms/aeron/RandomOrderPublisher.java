@@ -5,8 +5,8 @@ import io.aeron.Publication;
 import org.agrona.concurrent.UnsafeBuffer;
 import com.satya.oms.sbe.OrderEncoder;
 import com.satya.oms.sbe.MessageHeaderEncoder;
-import com.satya.oms.sbe.Side;
 import com.satya.oms.sbe.OrderState;
+import com.satya.oms.sbe.Side;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.ThreadLocalRandom;
@@ -30,8 +30,8 @@ public class RandomOrderPublisher {
 
             System.out.println("Random Order Publisher connected to Aeron Media Driver.");
 
-            // Create buffer and encoders (reuse for all orders)
-            final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(512);
+            // Create buffer for encoding
+            final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(256);
             final UnsafeBuffer buffer = new UnsafeBuffer(byteBuffer);
             final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
             final OrderEncoder orderEncoder = new OrderEncoder();
@@ -39,13 +39,14 @@ public class RandomOrderPublisher {
             long endTime = System.currentTimeMillis() + runDurationMs;
 
             while (System.currentTimeMillis() < endTime) {
-                // Create a random order
+                // Create a random order using SBE encoder
                 long orderId = ThreadLocalRandom.current().nextLong(1, 1_000_000);
-                int symbolId = ThreadLocalRandom.current().nextInt(1000, 2000);
+                long symbolId = ThreadLocalRandom.current().nextInt(1000, 2000);
                 Side side = ThreadLocalRandom.current().nextBoolean() ? Side.BUY : Side.SELL;
                 long quantity = ThreadLocalRandom.current().nextLong(1, 1000);
                 long price = ThreadLocalRandom.current().nextLong(1000, 2000);
 
+                // Encode the order
                 orderEncoder.wrapAndApplyHeader(buffer, 0, headerEncoder)
                     .orderId(orderId)
                     .symbolId(symbolId)
@@ -56,11 +57,11 @@ public class RandomOrderPublisher {
                     .filledQty(0)
                     .remainingQty(quantity);
 
-                int encodedLength = MessageHeaderEncoder.ENCODED_LENGTH + orderEncoder.encodedLength();
+                int length = MessageHeaderEncoder.ENCODED_LENGTH + orderEncoder.encodedLength();
 
                 // Try publishing until successful
                 while (true) {
-                    long result = publication.offer(buffer, 0, encodedLength);
+                    long result = publication.offer(buffer, 0, length);
                     if (result > 0) {
                         System.out.println("Order sent: id=" + orderId +
                                 " symbol=" + symbolId +

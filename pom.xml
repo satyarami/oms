@@ -78,11 +78,11 @@
             <version>23.0</version>
         </dependency>
 
-        <!-- SBE (Simple Binary Encoding) -->
+        <!-- SBE Tool -->
         <dependency>
             <groupId>uk.co.real-logic</groupId>
             <artifactId>sbe-all</artifactId>
-            <version>1.32.0</version>
+            <version>1.27.0</version>
         </dependency>
 
     </dependencies>
@@ -99,34 +99,52 @@
                     <target>21</target>
                 </configuration>
             </plugin>
-
-            <!-- SBE Maven Plugin to generate encoders/decoders -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.2.0</version>
+                <executions>
+                    <execution>
+                        <id>add-sbe-generated-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>target/generated-sources/sbe</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.1.0</version>
                 <executions>
                     <execution>
-                        <id>generate-sbe</id>
+                        <id>generate-sbe-code</id>
                         <phase>generate-sources</phase>
                         <goals>
                             <goal>java</goal>
                         </goals>
                         <configuration>
                             <mainClass>uk.co.real_logic.sbe.SbeTool</mainClass>
-                            <arguments>
-                                <argument>${project.basedir}/sbe/order-schema.xml</argument>
-                            </arguments>
                             <systemProperties>
                                 <systemProperty>
                                     <key>sbe.output.dir</key>
-                                    <value>${project.build.directory}/generated-sources/sbe</value>
+                                    <value>target/generated-sources/sbe</value>
                                 </systemProperty>
                                 <systemProperty>
                                     <key>sbe.target.language</key>
                                     <value>Java</value>
                                 </systemProperty>
                             </systemProperties>
+                            <arguments>
+                                <argument>sbe/order-schema.xml</argument>
+                            </arguments>
+                            <includePluginDependencies>true</includePluginDependencies>
                         </configuration>
                     </execution>
                 </executions>
@@ -134,30 +152,9 @@
                     <dependency>
                         <groupId>uk.co.real-logic</groupId>
                         <artifactId>sbe-all</artifactId>
-                        <version>1.32.0</version>
+                        <version>1.27.0</version>
                     </dependency>
                 </dependencies>
-            </plugin>
-
-            <!-- Add generated sources to build path -->
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>build-helper-maven-plugin</artifactId>
-                <version>3.5.0</version>
-                <executions>
-                    <execution>
-                        <id>add-sbe-sources</id>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>add-source</goal>
-                        </goals>
-                        <configuration>
-                            <sources>
-                                <source>${project.build.directory}/generated-sources/sbe</source>
-                            </sources>
-                        </configuration>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>

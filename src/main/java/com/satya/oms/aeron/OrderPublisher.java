@@ -5,8 +5,8 @@ import io.aeron.Publication;
 import org.agrona.concurrent.UnsafeBuffer;
 import com.satya.oms.sbe.OrderEncoder;
 import com.satya.oms.sbe.MessageHeaderEncoder;
-import com.satya.oms.sbe.Side;
 import com.satya.oms.sbe.OrderState;
+import com.satya.oms.sbe.Side;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.ThreadLocalRandom;
@@ -19,21 +19,18 @@ public class OrderPublisher {
     public static void main(String[] args) throws InterruptedException {
         Aeron.Context ctx = new Aeron.Context();
 
-        
-        
-        
         try (Aeron aeron = Aeron.connect(ctx);
              Publication publication = aeron.addPublication(CHANNEL, STREAM_ID)) {
 
             System.out.println("Publisher connected to Aeron Media Driver.");
 
-            // Create buffer and encoders
-            final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(512);
+            // Create buffer for encoding
+            final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(256);
             final UnsafeBuffer buffer = new UnsafeBuffer(byteBuffer);
             final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
             final OrderEncoder orderEncoder = new OrderEncoder();
 
-            // Encode an order
+            // Create an order using SBE encoder
             long orderId = ThreadLocalRandom.current().nextLong(1, 1_000_000);
             orderEncoder.wrapAndApplyHeader(buffer, 0, headerEncoder)
                 .orderId(orderId)
@@ -45,11 +42,11 @@ public class OrderPublisher {
                 .filledQty(0)
                 .remainingQty(500);
 
-            int encodedLength = MessageHeaderEncoder.ENCODED_LENGTH + orderEncoder.encodedLength();
+            int length = MessageHeaderEncoder.ENCODED_LENGTH + orderEncoder.encodedLength();
 
             // Try sending the order
             while (true) {
-                long result = publication.offer(buffer, 0, encodedLength);
+                long result = publication.offer(buffer, 0, length);
                 if (result > 0) {
                     System.out.println("Order sent successfully! ID=" + orderId);
                     break;
