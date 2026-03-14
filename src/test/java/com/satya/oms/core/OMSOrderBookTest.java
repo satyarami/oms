@@ -2,10 +2,15 @@
 package com.satya.oms.core;
 
 import com.satya.oms.disruptor.OrderEvent;
-import com.satya.oms.model.Order;
+import com.satya.oms.sbe.OrderEncoder;
+import com.satya.oms.sbe.MessageHeaderEncoder;
+import com.satya.oms.sbe.Side;
+import com.satya.oms.sbe.OrderState;
+import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.nio.ByteBuffer;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -21,7 +26,7 @@ class OMSOrderBookTest {
 
     @Test
     void testAddBuyOrder() {
-        OrderEvent buyOrder = createOrder(1001, 0, 100, 50000);
+        OrderEvent buyOrder = createOrder(1001, Side.BUY, 100, 50000);
         orderBook.addOrder(buyOrder);
 
         assertEquals(1, orderBook.getBuyOrders().size());
@@ -30,24 +35,34 @@ class OMSOrderBookTest {
 
     @Test
     void testAddSellOrder() {
-        OrderEvent sellOrder = createOrder(1001, 1, 100, 50000);
+        OrderEvent sellOrder = createOrder(1001, Side.SELL, 100, 50000);
         orderBook.addOrder(sellOrder);
 
         assertEquals(0, orderBook.getBuyOrders().size());
         assertEquals(1, orderBook.getSellOrders().size());
     }
 
-    private OrderEvent createOrder(int symbolId, int side, int quantity, int price) {
-        // Create an order
-        Order order = new Order();
-        order.setOrderId(ThreadLocalRandom.current().nextLong(1, 1_000_000));
-        order.setSymbolId(symbolId);
-        order.setSide((byte) side); // 0 = Buy, 1 = Sell
-        order.setQuantity(quantity);
-        order.setPrice(price);   // in ticks
+    private OrderEvent createOrder(int symbolId, Side side, int quantity, int price) {
+        // Create buffer and SBE encoder
+        final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(512);
+        final UnsafeBuffer buffer = new UnsafeBuffer(byteBuffer);
+        final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
+        final OrderEncoder orderEncoder = new OrderEncoder();
 
+        // Encode order
+        orderEncoder.wrapAndApplyHeader(buffer, 0, headerEncoder)
+            .orderId(ThreadLocalRandom.current().nextLong(1, 1_000_000))
+            .symbolId(symbolId)
+            .side(side)
+            .quantity(quantity)
+            .price(price)
+            .state(OrderState.NEW)
+            .filledQty(0)
+            .remainingQty(quantity);
+
+        // Create OrderEvent and set buffer
         OrderEvent event = new OrderEvent();
-        event.setBuffer(order.getBuffer(), 0);
+        event.setBuffer(buffer, 0);
 
         return event;
     }

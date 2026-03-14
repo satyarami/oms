@@ -1,7 +1,7 @@
 package com.satya.oms.gateway;
 
 import com.satya.oms.disruptor.OrderEvent;
-import com.satya.oms.model.OrderState;
+import com.satya.oms.sbe.OrderState;
 
 import java.util.concurrent.ThreadLocalRandom;
 

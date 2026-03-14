@@ -1,6 +1,8 @@
 package com.satya.oms.aeron;
 
 import com.satya.oms.disruptor.OMSCore;
+import com.satya.oms.sbe.OrderDecoder;
+import com.satya.oms.sbe.MessageHeaderDecoder;
 import io.aeron.Aeron;
 import io.aeron.Subscription;
 import io.aeron.logbuffer.FragmentHandler;
@@ -19,6 +21,10 @@ public class OrderSubscriber implements Runnable {
     private final IdleStrategy idleStrategy = new SleepingMillisIdleStrategy(1);
 
     private final OMSCore omsCore;
+    
+    // Reusable decoders
+    private final MessageHeaderDecoder headerDecoder = new MessageHeaderDecoder();
+    private final OrderDecoder orderDecoder = new OrderDecoder();
 
     public OrderSubscriber(Aeron aeron, OMSCore omsCore) {
         this.aeron = aeron;
@@ -39,12 +45,18 @@ public class OrderSubscriber implements Runnable {
     }
 
     private void onFragment(DirectBuffer buffer, int offset, int length, Header header) {
-        long orderId = buffer.getLong(offset);
-        int symbolId = buffer.getInt(offset + 8);
-        byte side = buffer.getByte(offset + 12);
-        long quantity = buffer.getLong(offset + 13);
-        long price = buffer.getLong(offset + 21);
-        byte state = buffer.getByte(offset + 29);
+        // Decode the message header
+        headerDecoder.wrap(buffer, offset);
+        
+        // Decode the order message
+        orderDecoder.wrapAndApplyHeader(buffer, offset, headerDecoder);
+        
+        long orderId = orderDecoder.orderId();
+        long symbolId = orderDecoder.symbolId();
+        short side = orderDecoder.side().value();
+        long quantity = orderDecoder.quantity();
+        long price = orderDecoder.price();
+        short state = orderDecoder.state().value();
 
         System.out.printf("Received Order: id=%d symbol=%d side=%d qty=%d price=%d state=%d%n",
                 orderId, symbolId, side, quantity, price, state);

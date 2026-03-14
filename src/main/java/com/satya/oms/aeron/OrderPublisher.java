@@ -2,10 +2,13 @@ package com.satya.oms.aeron;
 
 import io.aeron.Aeron;
 import io.aeron.Publication;
-import org.agrona.DirectBuffer;
-import com.satya.oms.model.Order;
-import com.satya.oms.model.OrderState;
+import org.agrona.concurrent.UnsafeBuffer;
+import com.satya.oms.sbe.OrderEncoder;
+import com.satya.oms.sbe.MessageHeaderEncoder;
+import com.satya.oms.sbe.Side;
+import com.satya.oms.sbe.OrderState;
 
+import java.nio.ByteBuffer;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class OrderPublisher {
@@ -24,26 +27,35 @@ public class OrderPublisher {
 
             System.out.println("Publisher connected to Aeron Media Driver.");
 
-            // Create an order
-            Order order = new Order();
-            order.setOrderId(ThreadLocalRandom.current().nextLong(1, 1_000_000));
-            order.setSymbolId(1001);
-            order.setSide((byte) 0); // 0 = Buy, 1 = Sell
-            order.setQuantity(500);
-            order.setPrice(12345);   // in ticks
-            order.setState(OrderState.NEW);
+            // Create buffer and encoders
+            final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(512);
+            final UnsafeBuffer buffer = new UnsafeBuffer(byteBuffer);
+            final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
+            final OrderEncoder orderEncoder = new OrderEncoder();
 
-            DirectBuffer buffer = order.getBuffer();
+            // Encode an order
+            long orderId = ThreadLocalRandom.current().nextLong(1, 1_000_000);
+            orderEncoder.wrapAndApplyHeader(buffer, 0, headerEncoder)
+                .orderId(orderId)
+                .symbolId(1001)
+                .side(Side.BUY)
+                .quantity(500)
+                .price(12345)
+                .state(OrderState.NEW)
+                .filledQty(0)
+                .remainingQty(500);
+
+            int encodedLength = MessageHeaderEncoder.ENCODED_LENGTH + orderEncoder.encodedLength();
 
             // Try sending the order
             while (true) {
-                long result = publication.offer(buffer, 0, Order.SIZE);
+                long result = publication.offer(buffer, 0, encodedLength);
                 if (result > 0) {
-                    System.out.println("Order sent successfully! ID=" + order.getOrderId());
+                    System.out.println("Order sent successfully! ID=" + orderId);
                     break;
                 } else {
                     // backoff strategy
-                    Thread.sleep(1);
+                    Thread.sleep(100);
                 }
             }
         }

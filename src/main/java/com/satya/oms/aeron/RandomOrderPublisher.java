@@ -2,10 +2,13 @@ package com.satya.oms.aeron;
 
 import io.aeron.Aeron;
 import io.aeron.Publication;
-import org.agrona.DirectBuffer;
-import com.satya.oms.model.Order;
-import com.satya.oms.model.OrderState;
+import org.agrona.concurrent.UnsafeBuffer;
+import com.satya.oms.sbe.OrderEncoder;
+import com.satya.oms.sbe.MessageHeaderEncoder;
+import com.satya.oms.sbe.Side;
+import com.satya.oms.sbe.OrderState;
 
+import java.nio.ByteBuffer;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class RandomOrderPublisher {
@@ -27,29 +30,43 @@ public class RandomOrderPublisher {
 
             System.out.println("Random Order Publisher connected to Aeron Media Driver.");
 
+            // Create buffer and encoders (reuse for all orders)
+            final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(512);
+            final UnsafeBuffer buffer = new UnsafeBuffer(byteBuffer);
+            final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
+            final OrderEncoder orderEncoder = new OrderEncoder();
+
             long endTime = System.currentTimeMillis() + runDurationMs;
 
             while (System.currentTimeMillis() < endTime) {
                 // Create a random order
-                Order order = new Order();
-                order.setOrderId(ThreadLocalRandom.current().nextLong(1, 1_000_000));
-                order.setSymbolId(ThreadLocalRandom.current().nextInt(1000, 2000));
-                order.setSide(ThreadLocalRandom.current().nextBoolean() ? (byte)0 : (byte)1); // 0=Buy,1=Sell
-                order.setQuantity(ThreadLocalRandom.current().nextLong(1, 1000));
-                order.setPrice(ThreadLocalRandom.current().nextLong(1000, 2000));
-                order.setState(OrderState.NEW);
+                long orderId = ThreadLocalRandom.current().nextLong(1, 1_000_000);
+                int symbolId = ThreadLocalRandom.current().nextInt(1000, 2000);
+                Side side = ThreadLocalRandom.current().nextBoolean() ? Side.BUY : Side.SELL;
+                long quantity = ThreadLocalRandom.current().nextLong(1, 1000);
+                long price = ThreadLocalRandom.current().nextLong(1000, 2000);
 
-                DirectBuffer buffer = order.getBuffer();
+                orderEncoder.wrapAndApplyHeader(buffer, 0, headerEncoder)
+                    .orderId(orderId)
+                    .symbolId(symbolId)
+                    .side(side)
+                    .quantity(quantity)
+                    .price(price)
+                    .state(OrderState.NEW)
+                    .filledQty(0)
+                    .remainingQty(quantity);
+
+                int encodedLength = MessageHeaderEncoder.ENCODED_LENGTH + orderEncoder.encodedLength();
 
                 // Try publishing until successful
                 while (true) {
-                    long result = publication.offer(buffer, 0, Order.SIZE);
+                    long result = publication.offer(buffer, 0, encodedLength);
                     if (result > 0) {
-                        System.out.println("Order sent: id=" + order.getOrderId() +
-                                " symbol=" + order.getSymbolId() +
-                                " side=" + order.getSide() +
-                                " qty=" + order.getQuantity() +
-                                " price=" + order.getPrice());
+                        System.out.println("Order sent: id=" + orderId +
+                                " symbol=" + symbolId +
+                                " side=" + side +
+                                " qty=" + quantity +
+                                " price=" + price);
                         break;
                     } else {
                         Thread.sleep(1); // backoff if not accepted

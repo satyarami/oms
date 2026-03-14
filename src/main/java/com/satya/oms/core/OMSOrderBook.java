@@ -1,6 +1,7 @@
 package com.satya.oms.core;
 
 import com.satya.oms.disruptor.OrderEvent;
+import com.satya.oms.sbe.Side;
 
 import java.util.ArrayList;
 import com.google.common.annotations.VisibleForTesting;
@@ -14,7 +15,7 @@ public class OMSOrderBook {
 
     // Add order to the book
     public void addOrder(OrderEvent order) {
-        if (order.getSide() == 0) {
+        if (order.getSide() == Side.BUY.value()) {
             buyOrders.add(order);
             buyOrders.sort(Comparator.comparingLong(OrderEvent::getPrice).reversed());
         } else {

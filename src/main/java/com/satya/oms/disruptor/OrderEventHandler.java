@@ -3,7 +3,7 @@ package com.satya.oms.disruptor;
 import com.lmax.disruptor.EventHandler;
 import com.satya.oms.core.OMSOrderBook;
 import com.satya.oms.gateway.MarketGateway;
-import com.satya.oms.model.OrderState;
+import com.satya.oms.sbe.OrderState;
 
 public class OrderEventHandler implements EventHandler<OrderEvent> {
 
