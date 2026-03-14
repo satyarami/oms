@@ -18,7 +18,7 @@ public class RandomOrderPublisher {
 
     public static void main(String[] args) throws InterruptedException {
         // Run for this many milliseconds (10 seconds default)
-        long runDurationMs = 10_000;
+        long runDurationMs = 100_000_000;
         if (args.length > 0) {
             runDurationMs = Long.parseLong(args[0]);
         }
@@ -41,10 +41,10 @@ public class RandomOrderPublisher {
             while (System.currentTimeMillis() < endTime) {
                 // Create a random order using SBE encoder
                 long orderId = ThreadLocalRandom.current().nextLong(1, 1_000_000);
-                long symbolId = ThreadLocalRandom.current().nextInt(1000, 2000);
+                long symbolId = ThreadLocalRandom.current().nextInt(1, 6);
                 Side side = ThreadLocalRandom.current().nextBoolean() ? Side.BUY : Side.SELL;
-                long quantity = ThreadLocalRandom.current().nextLong(1, 1000);
-                long price = ThreadLocalRandom.current().nextLong(1000, 2000);
+                long quantity = ThreadLocalRandom.current().nextLong(1, 100);
+                long price = ThreadLocalRandom.current().nextLong(99, 101);
 
                 // Encode the order
                 orderEncoder.wrapAndApplyHeader(buffer, 0, headerEncoder)

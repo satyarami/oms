@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.agrona.concurrent.UnsafeBuffer;
 import com.lmax.disruptor.EventHandler;
+import com.satya.oms.config.OMSConfig;
 import com.satya.oms.core.OMSOrderBook;
 import com.satya.oms.gateway.MarketGateway;
 import com.satya.oms.sbe.MessageHeaderEncoder;
@@ -17,8 +18,8 @@ import io.aeron.Publication;
 
 public class OrderEventHandler implements EventHandler<OrderEvent> {
 
-    private static final String CHANNEL = "aeron:ipc?term-length=64k";
-    private static final int STREAM_ID = 1002;
+    private static final String CHANNEL = OMSConfig.getAeronChannel();
+    private static final int STREAM_ID = OMSConfig.getAeronOutStreamId();
 
     private final OMSOrderBook orderBook = new OMSOrderBook();
     private final MarketGateway gateway = new MarketGateway();
@@ -46,7 +47,7 @@ public class OrderEventHandler implements EventHandler<OrderEvent> {
                 publish(event, 0);
                 return;
             }
-            if (event.getQuantity() > 1000) {
+            if (event.getQuantity() > OMSConfig.getMaxOrderQuantity()) {
                 System.out.println("Rejected order exceeding max qty: " + event.getOrderId());
                 event.setBufferState((byte) OrderState.REJECTED.value());
                 publish(event, 0);

@@ -48,6 +48,24 @@ public class OMSConfig {
         return Integer.parseInt(properties.getProperty("aeron.stream.id", String.valueOf(DEFAULT_STREAM_ID)));
     }
 
+    public static int getAeronInStreamId() {
+        return Integer.parseInt(
+                properties.getProperty(
+                        "aeron.in.stream.id",
+                        properties.getProperty("aeron.stream.id", String.valueOf(DEFAULT_STREAM_ID))
+                )
+        );
+    }
+
+    public static int getAeronOutStreamId() {
+        return Integer.parseInt(
+                properties.getProperty(
+                        "aeron.out.stream.id",
+                        properties.getProperty("aeron.stream.id", String.valueOf(DEFAULT_STREAM_ID))
+                )
+        );
+    }
+
     public static int getDisruptorRingSize() {
         return Integer.parseInt(properties.getProperty("disruptor.ring.size", String.valueOf(DEFAULT_DISRUPTOR_RING_SIZE)));
     }

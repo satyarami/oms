@@ -1,4 +1,3 @@
-
 package com.satya.oms.disruptor;
 
 import com.lmax.disruptor.dsl.Disruptor;
@@ -8,13 +7,15 @@ import org.agrona.DirectBuffer;
 
 import java.util.concurrent.Executors;
 
+import com.satya.oms.config.OMSConfig;
+
 public class OMSCore {
     private final Disruptor<OrderEvent> disruptor;
 
     public OMSCore() {
         disruptor = new Disruptor<>(
                 new OrderEventFactory(),
-                1024, // ring buffer size, power of 2
+                OMSConfig.getDisruptorRingSize(), // ring buffer size from config
                 Executors.defaultThreadFactory(),
                 ProducerType.MULTI,
                 new BlockingWaitStrategy()
