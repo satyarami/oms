@@ -23,6 +23,12 @@
             <validValue name="PARTIALLY_FILLED" description="Partially filled">2</validValue>
             <validValue name="REJECTED" description="Rejected">3</validValue>
         </enum>
+        <!-- Added Fill composite type -->
+        <composite name="Fill" description="Execution fill details">
+           <type name="quantity" primitiveType="uint64"/>
+            <type name="price" primitiveType="uint64"/>
+            <type name="executionId" primitiveType="char" length="64"/>
+        </composite>
     </types>
     <message name="Order" id="1" description="Order event message">
         <field name="orderId" id="1" type="uint64"/>
@@ -33,5 +39,9 @@
         <field name="state" id="6" type="OrderState"/>
         <field name="filledQty" id="7" type="uint64"/>
         <field name="remainingQty" id="8" type="uint64"/>
+        <!-- Added fills group -->
+        <group name="fills" id="9" dimensionType="uint8">
+            <composite type="Fill"/>
+        </group>
     </message>
 </sbe:messageSchema>
