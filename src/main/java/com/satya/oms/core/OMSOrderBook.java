@@ -2,20 +2,23 @@ package com.satya.oms.core;
 
 import com.satya.oms.disruptor.OrderEvent;
 
+import io.aeron.Aeron;
+import io.aeron.Publication;
+
 import java.util.ArrayList;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Comparator;
 import java.util.List;
 
 public class OMSOrderBook {
-
+	
     private final List<OrderEvent> buyOrders = new ArrayList<>();
     private final List<OrderEvent> sellOrders = new ArrayList<>();
-
+    
     // Add order to the book
     public void addOrder(OrderEvent order) {
-    	System.out.printf("XXX  Adding order: ID=%d Side=%d Qty=%d Price=%d\n",
-			order.getOrderId(), order.getSide(), order.getQuantity(), order.getPrice());
+    	System.out.printf("Adding order: ID=%d Symbol=%d, Side=%d Qty=%d Price=%d\n",
+			order.getOrderId(), order.getSymbolId(), order.getSide(), order.getQuantity(), order.getPrice());
         if (order.getSide() == 0) {
             buyOrders.add(order);
             buyOrders.sort(Comparator.comparingLong(OrderEvent::getPrice).reversed());
