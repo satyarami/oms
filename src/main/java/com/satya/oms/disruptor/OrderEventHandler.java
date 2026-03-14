@@ -64,7 +64,7 @@ public class OrderEventHandler implements EventHandler<OrderEvent> {
     }
 
     private void publish(OrderEvent event, int fillCount) {
-    	System.out.println("Publishing order: ID=" + event.getOrderId() + " state=" + event.getStateEnum());
+    	System.out.println("Publishing order: ID=" + event.getOrderId() + " state=" + event.getStateEnum() + " filledQty=" + event.getFilledQty() + " remainingQty=" + event.getRemainingQty());
         orderEncoder.wrapAndApplyHeader(buffer, 0, headerEncoder)
                 .orderId(event.getOrderId())
                 .symbolId(event.getSymbolId())
