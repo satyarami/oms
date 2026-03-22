@@ -17,13 +17,19 @@
     <packaging>jar</packaging>
 
     <dependencies>
+        <!-- Shared SBE schema & generated codecs -->
+        <dependency>
+            <groupId>com.satya.oms</groupId>
+            <artifactId>oms-common</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+
         <!-- Agrona -->
         <dependency>
             <groupId>org.agrona</groupId>
             <artifactId>agrona</artifactId>
             <version>1.22.0</version>
         </dependency>
-
 
         <!-- Aeron -->
         <dependency>
@@ -38,7 +44,6 @@
             <artifactId>disruptor</artifactId>
             <version>3.4.4</version>
         </dependency>
-
 
         <!-- SLF4J (minimal logging) -->
         <dependency>
@@ -78,66 +83,9 @@
             <version>23.0</version>
         </dependency>
 
-        <!-- SBE Tool -->
-        <dependency>
-            <groupId>uk.co.real-logic</groupId>
-            <artifactId>sbe-all</artifactId>
-            <version>1.27.0</version>
-        </dependency>
-
     </dependencies>
 
     <build>
-        <pluginManagement>
-            <plugins>
-                <!-- Tell Eclipse M2E how to handle plugins it doesn't know about -->
-                <plugin>
-                    <groupId>org.eclipse.m2e</groupId>
-                    <artifactId>lifecycle-mapping</artifactId>
-                    <version>1.0.0</version>
-                    <configuration>
-                        <lifecycleMappingMetadata>
-                            <pluginExecutions>
-                                <!-- Run SBE code generation inside Eclipse workspace build -->
-                                <pluginExecution>
-                                    <pluginExecutionFilter>
-                                        <groupId>org.codehaus.mojo</groupId>
-                                        <artifactId>exec-maven-plugin</artifactId>
-                                        <versionRange>[1.0,)</versionRange>
-                                        <goals>
-                                            <goal>java</goal>
-                                        </goals>
-                                    </pluginExecutionFilter>
-                                    <action>
-                                        <execute>
-                                            <runOnIncremental>false</runOnIncremental>
-                                            <runOnConfiguration>true</runOnConfiguration>
-                                        </execute>
-                                    </action>
-                                </pluginExecution>
-                                <!-- Register the generated-sources/sbe folder as a source root -->
-                                <pluginExecution>
-                                    <pluginExecutionFilter>
-                                        <groupId>org.codehaus.mojo</groupId>
-                                        <artifactId>build-helper-maven-plugin</artifactId>
-                                        <versionRange>[1.0,)</versionRange>
-                                        <goals>
-                                            <goal>add-source</goal>
-                                        </goals>
-                                    </pluginExecutionFilter>
-                                    <action>
-                                        <execute>
-                                            <runOnIncremental>false</runOnIncremental>
-                                            <runOnConfiguration>true</runOnConfiguration>
-                                        </execute>
-                                    </action>
-                                </pluginExecution>
-                            </pluginExecutions>
-                        </lifecycleMappingMetadata>
-                    </configuration>
-                </plugin>
-            </plugins>
-        </pluginManagement>
         <plugins>
             <!-- Compiler plugin configuration -->
             <plugin>
@@ -148,71 +96,6 @@
                     <source>21</source>
                     <target>21</target>
                 </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>build-helper-maven-plugin</artifactId>
-                <version>3.2.0</version>
-                <executions>
-                    <execution>
-                        <id>add-sbe-generated-sources</id>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>add-source</goal>
-                        </goals>
-                        <configuration>
-                            <sources>
-                                <source>target/generated-sources/sbe</source>
-                            </sources>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>3.1.0</version>
-                <executions>
-                    <execution>
-                        <id>generate-sbe-code</id>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>java</goal>
-                        </goals>
-                        <configuration>
-                            <mainClass>uk.co.real_logic.sbe.SbeTool</mainClass>
-                            <systemProperties>
-                                <systemProperty>
-                                    <key>sbe.output.dir</key>
-                                    <value>${project.build.directory}/generated-sources/sbe</value>
-                                </systemProperty>
-                                <systemProperty>
-                                    <key>sbe.target.language</key>
-                                    <value>Java</value>
-                                </systemProperty>
-                                <systemProperty>
-                                    <key>sbe.validation.stop.on.error</key>
-                                    <value>true</value>
-                                </systemProperty>
-                                <systemProperty>
-                                    <key>sbe.validation.warnings.fatal</key>
-                                    <value>false</value>
-                                </systemProperty>
-                            </systemProperties>
-                            <arguments>
-                                <argument>${project.basedir}/src/main/resources/order-schema.xml</argument>
-                            </arguments>
-                            <includePluginDependencies>true</includePluginDependencies>
-                        </configuration>
-                    </execution>
-                </executions>
-                <dependencies>
-                    <dependency>
-                        <groupId>uk.co.real-logic</groupId>
-                        <artifactId>sbe-all</artifactId>
-                        <version>1.27.0</version>
-                    </dependency>
-                </dependencies>
             </plugin>
         </plugins>
     </build>
