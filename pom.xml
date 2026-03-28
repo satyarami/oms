@@ -28,13 +28,20 @@
         <dependency>
             <groupId>org.agrona</groupId>
             <artifactId>agrona</artifactId>
-            <version>1.22.0</version>
+            <version>1.23.1</version>
         </dependency>
 
-        <!-- Aeron -->
+        <!-- Aeron Client (Aeron, Publication, Subscription) -->
         <dependency>
             <groupId>io.aeron</groupId>
-            <artifactId>aeron-all</artifactId>
+            <artifactId>aeron-client</artifactId>
+            <version>1.44.1</version>
+        </dependency>
+
+        <!-- Aeron Driver (MediaDriver) -->
+        <dependency>
+            <groupId>io.aeron</groupId>
+            <artifactId>aeron-driver</artifactId>
             <version>1.44.1</version>
         </dependency>
 
