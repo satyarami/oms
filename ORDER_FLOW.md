@@ -14,36 +14,47 @@ The system is built around three key technologies:
 ## Architecture Diagram
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│                              ORDER FLOW                                          │
-│                                                                                  │
-│  ┌─────────────────┐        ┌──────────────────┐       ┌──────────────────────┐ │
-│  │  OrderPublisher │        │   Aeron Media    │       │   OrderSubscriber    │ │
-│  │     or          │──SBE──▶│     Driver       │──IPC─▶│   (Aeron client)     │ │
-│  │ RandomOrderPub  │        │  (MediaDriver    │       │                      │ │
-│  │                 │        │    Main)         │       └────────┬─────────────┘ │
-│  └─────────────────┘        └──────────────────┘                │               │
-│                                                                  │ publish()     │
-│                                                          ┌───────▼─────────────┐ │
-│                                                          │      OMSCore        │ │
-│                                                          │   (Disruptor Ring   │ │
-│                                                          │      Buffer)        │ │
-│                                                          └───────┬─────────────┘ │
-│                                                                  │ onEvent()     │
-│                                                          ┌───────▼─────────────┐ │
-│                                                          │  OrderEventHandler  │ │
-│                                                          │  - Validation       │ │
-│                                                          │  - Risk Check       │ │
-│                                                          └──┬────────────┬─────┘ │
-│                                                             │            │       │
-│                                              addOrder()     │            │       │
-│                                         ┌───────────────────▼──┐  ┌─────▼─────┐ │
-│                                         │    OMSOrderBook      │  │  Market   │ │
-│                                         │  - BUY  price-desc   │  │  Gateway  │ │
-│                                         │  - SELL price-asc    │  │(simulated)│ │
-│                                         │  - matchOrders()     │  └───────────┘ │
-│                                         └──────────────────────┘                │
-└──────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────┐
+│                              ORDER FLOW                                              │
+│                                                                                      │
+│  ┌─────────────────┐        ┌──────────────────┐       ┌──────────────────────┐     │
+│  │  OrderPublisher │        │   Aeron Media    │       │   OrderSubscriber    │     │
+│  │     or          │──SBE──▶│     Driver       │──IPC─▶│   (Aeron client)     │     │
+│  │ RandomOrderPub  │        │  (MediaDriver    │       │                      │     │
+│  │                 │        │    Main)         │       └────────┬─────────────┘     │
+│  └─────────────────┘        └──────────────────┘                │                   │
+│                                                                  │ publish()         │
+│                                                          ┌───────▼─────────────┐     │
+│                                                          │      OMSCore        │     │
+│                                                          │   (Disruptor Ring   │     │
+│                                                          │      Buffer)        │     │
+│                                                          └───────┬─────────────┘     │
+│                                                                  │ onEvent()         │
+│                                                          ┌───────▼─────────────┐     │
+│                                                          │  OrderEventHandler  │     │
+│                                                          │  - Validation       │     │
+│                                                          │  - Risk Check       │     │
+│                                                          │  - GatewayListener  │     │
+│                                                          └──┬────────────┬─────┘     │
+│                                                             │            │           │
+│                                              addOrder()     │            │ SBE       │
+│                                                             │            │ OrderReq  │
+│                                         ┌───────────────────▼──┐  ┌─────▼─────────┐ │
+│                                         │    OMSOrderBook      │  │    Market      │ │
+│                                         │  - BUY  price-desc   │  │    Gateway     │ │
+│                                         │  - SELL price-asc    │  │  (simulated)   │ │
+│                                         │  - matchOrders()     │  └──┬──┬──┬──┬──┘ │
+│                                         └──────────────────────┘     │  │  │  │     │
+│                                                                      │  │  │  │ SBE │
+│                                              AckEvent ◄──────────────┘  │  │  │     │
+│                                              RejectEvent ◄──────────────┘  │  │     │
+│                                              FillEvent(s) ◄────────────────┘  │     │
+│                                              DoneEvent ◄──────────────────────┘     │
+│                                                                                      │
+│                                         (fills arrive asynchronously at              │
+│                                          configurable interval: gateway.fill.        │
+│                                          interval.ms, default 50ms)                  │
+└──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -151,11 +162,11 @@ OMSCore.publish(buffer, offset)
 ### Step 6 – Order Processing (`OrderEventHandler`)
 **Class:** `com.satya.oms.disruptor.OrderEventHandler`
 
-This is the **single Disruptor consumer thread**. For each `OrderEvent` dequeued from the ring buffer, it performs three sequential steps:
+This is the **single Disruptor consumer thread** and also implements `GatewayListener`. For each `OrderEvent` dequeued from the ring buffer, it performs three sequential steps:
 
 #### 6a – Validation
 ```
-if (quantity <= 0 || price <= 0)  → REJECTED
+if (quantity <= 0 || price <= 0)  → REJECTED (published immediately to Aeron)
 ```
 
 #### 6b – Risk Check
@@ -163,8 +174,25 @@ if (quantity <= 0 || price <= 0)  → REJECTED
 if (quantity > 1000)              → REJECTED   (configurable via order.max.quantity)
 ```
 
-#### 6c – Order Book + Matching + Gateway
-Valid orders proceed to the order book, matching engine, and market gateway.
+#### 6c – Order Book + Matching
+Valid orders proceed to the order book and matching engine.
+
+#### 6d – SBE OrderRequest → Gateway
+The handler encodes an SBE `OrderRequest` (message id=2) containing `{orderId, symbolId, side, quantity, price}` into a `DirectBuffer` and calls `gateway.sendOrder(buffer, offset, length, this)`.
+
+No Java domain object crosses the handler–gateway boundary; only raw SBE bytes.
+
+#### 6e – GatewayListener Callbacks
+The handler implements `GatewayListener` and receives SBE-encoded responses:
+
+| Callback    | Decodes          | Action                                                        |
+|-------------|------------------|---------------------------------------------------------------|
+| `onAck`     | `AckEvent`       | Log acknowledgement; fills will follow asynchronously         |
+| `onReject`  | `RejectEvent`    | Remove in-flight state; publish REJECTED `Order` to Aeron     |
+| `onFill`    | `FillEvent`      | Accumulate fill qty and record `{fillQty, fillPrice, execId}` |
+| `onDone`    | `DoneEvent`      | Determine FILLED vs PARTIALLY_FILLED; publish final `Order` with all accumulated fills to Aeron |
+
+Fill state is tracked per order in a `ConcurrentMap<Long, OrderFillState>` because fills arrive asynchronously from the gateway's scheduler thread.
 
 ---
 
@@ -190,15 +218,21 @@ while top-buy.price >= top-sell.price:
 ### Step 8 – Market Gateway (`MarketGateway`)
 **Class:** `com.satya.oms.gateway.MarketGateway`
 
-Simulates sending the order to an external exchange. A random number determines the outcome:
+Simulates sending the order to an external exchange. All communication uses SBE-encoded buffers via the `GatewayListener` callback interface.
 
-| Probability | Outcome          | State set on OrderEvent    |
-|-------------|------------------|---------------------------|
-| 70%         | Fully Filled     | `OrderState.FILLED`       |
-| 20%         | Partially Filled | `OrderState.PARTIALLY_FILLED` |
-| 10%         | Rejected         | `OrderState.REJECTED`     |
+**Flow:**
+1. Receives an SBE `OrderRequest` buffer
+2. Decodes using `OrderRequestDecoder`
+3. Random decision: **90% Ack, 10% Reject**
 
-The state is written back into the `OrderEvent`'s buffer via `setBufferState()`.
+| Step        | SBE Message     | Action                                                       |
+|-------------|-----------------|--------------------------------------------------------------|
+| Reject      | `RejectEvent`   | Encodes and calls `listener.onReject()` immediately; done    |
+| Ack         | `AckEvent`      | Encodes and calls `listener.onAck()`                         |
+| Fills       | `FillEvent`(s)  | Scheduled at `gateway.fill.interval.ms` (default 50ms); each tick sends a random partial fill via `listener.onFill()` |
+| Done        | `DoneEvent`     | Sent once remaining quantity reaches 0; calls `listener.onDone()`; cancels schedule |
+
+Fill generation uses a `ScheduledExecutorService`. Each fill is a random quantity between 1 and the remaining amount.
 
 ---
 
@@ -227,11 +261,11 @@ The state is written back into the `OrderEvent`'s buffer via `setBufferState()`.
         │
         ▼
 [6] OrderEventHandler.onEvent()
-        │  ├─ [VALIDATION]   qty > 0, price > 0  →  REJECT if invalid
-        │  ├─ [RISK CHECK]   qty <= 1000         →  REJECT if exceeded
+        │  ├─ [VALIDATION]   qty > 0, price > 0       →  REJECT if invalid
+        │  ├─ [RISK CHECK]   qty <= 1000              →  REJECT if exceeded
         │  ├─ [ORDER BOOK]   orderBook.addOrder(event)
         │  ├─ [MATCHING]     orderBook.matchOrders()
-        │  └─ [GATEWAY]      gateway.sendOrder(event)
+        │  └─ [GATEWAY]      encode SBE OrderRequest  →  gateway.sendOrder(buf, this)
         │
         ▼
 [7] OMSOrderBook
@@ -241,12 +275,18 @@ The state is written back into the `OrderEvent`'s buffer via `setBufferState()`.
         │
         ▼
 [8] MarketGateway.sendOrder()
-        │  ├─ 70%  → FILLED
-        │  ├─ 20%  → PARTIALLY_FILLED
-        │  └─ 10%  → REJECTED
+        │  ├─ Decode SBE OrderRequest
+        │  ├─ 90%  → ACK  (AckEvent)   then async fills:
+        │  │         ├─ FillEvent(s) at gateway.fill.interval.ms
+        │  │         └─ DoneEvent when remaining = 0
+        │  └─ 10%  → REJECT (RejectEvent)
         │
         ▼
-   [OrderEvent state updated in-place on RingBuffer slot]
+   [GatewayListener callbacks → OrderEventHandler]
+        │  ├─ onAck()    → log, await fills
+        │  ├─ onReject() → publish REJECTED Order to Aeron
+        │  ├─ onFill()   → accumulate filledQty in OrderFillState
+        │  └─ onDone()   → publish final FILLED/PARTIALLY_FILLED Order to Aeron
 ```
 
 ---
@@ -260,6 +300,8 @@ The state is written back into the `OrderEvent`'s buffer via `setBufferState()`.
 | Inter-thread queue  | LMAX Disruptor                  | Lock-free ring buffer, ~10ns per slot vs ~1µs mutex |
 | Buffer reuse        | Pre-allocated `OrderEvent`      | Object pooling via Disruptor — avoids GC pauses     |
 | Order book sort     | `ArrayList` + `Comparator.sort` | Simple price-priority matching (FIFO within price)  |
+| Gateway protocol    | SBE-encoded `DirectBuffer`s     | No Java objects cross handler–gateway boundary      |
+| Gateway fills       | `ScheduledExecutorService`      | Async fill delivery at configurable interval        |
 | Gateway             | Simulated (random)              | Stand-in for real FIX/exchange connectivity         |
 
 ---
@@ -276,6 +318,7 @@ The state is written back into the `OrderEvent`'s buffer via `setBufferState()`.
 | `OrderEvent`             | `...disruptor`                 | Reusable ring buffer slot (46-byte SBE payload)   |
 | `OrderEventFactory`      | `...disruptor`                 | Pre-populates ring buffer slots at startup        |
 | `OrderEventHandler`      | `...disruptor`                 | Consumer: validation → risk → book → gateway      |
+| `GatewayListener`        | `...gateway`                   | Callback interface for SBE gateway responses      |
 | `OMSOrderBook`           | `...core`                      | Price-sorted dual-sided order book + matcher      |
 | `MarketGateway`          | `...gateway`                   | Simulated exchange connectivity                   |
 | `OMSConfig`              | `...config`                    | Loads `oms.properties`; provides typed accessors  |
@@ -285,6 +328,7 @@ The state is written back into the `OrderEvent`'s buffer via `setBufferState()`.
 ## SBE Schema (`sbe/order-schema.xml`)
 
 ```xml
+<!-- Outbound order published on Aeron -->
 <message name="Order" id="1">
   <field name="orderId"      id="1" type="uint64"/>
   <field name="symbolId"     id="2" type="uint32"/>
@@ -294,7 +338,43 @@ The state is written back into the `OrderEvent`'s buffer via `setBufferState()`.
   <field name="state"        id="6" type="OrderState"/>  <!-- NEW/FILLED/PARTIALLY_FILLED/REJECTED -->
   <field name="filledQty"    id="7" type="uint64"/>
   <field name="remainingQty" id="8" type="uint64"/>
+  <group name="fills" ...>
+    <field name="fillQty" /><field name="fillPrice" /><field name="executionId" />
+  </group>
+</message>
+
+<!-- Handler → Gateway: new order request -->
+<message name="OrderRequest" id="2">
+  <field name="orderId"  id="1" type="uint64"/>
+  <field name="symbolId" id="2" type="uint32"/>
+  <field name="side"     id="3" type="Side"/>
+  <field name="quantity" id="4" type="uint64"/>
+  <field name="price"    id="5" type="uint64"/>
+</message>
+
+<!-- Gateway → Handler: order acknowledged -->
+<message name="AckEvent" id="3">
+  <field name="orderId" id="1" type="uint64"/>
+</message>
+
+<!-- Gateway → Handler: order rejected -->
+<message name="RejectEvent" id="4">
+  <field name="orderId"    id="1" type="uint64"/>
+  <field name="rejectCode" id="2" type="uint32"/>
+</message>
+
+<!-- Gateway → Handler: a single fill -->
+<message name="FillEvent" id="5">
+  <field name="orderId"     id="1" type="uint64"/>
+  <field name="fillQty"     id="2" type="uint64"/>
+  <field name="fillPrice"   id="3" type="uint64"/>
+  <field name="executionId" id="4" type="uint64"/>
+</message>
+
+<!-- Gateway → Handler: no more fills for this order -->
+<message name="DoneEvent" id="6">
+  <field name="orderId" id="1" type="uint64"/>
 </message>
 ```
 
-Byte order: **little-endian**. Total block length: **46 bytes** + 8-byte SBE `messageHeader`.
+Byte order: **little-endian**. Order block length: **46 bytes** + 8-byte SBE `messageHeader`.

@@ -22,6 +22,7 @@ public class OMSConfig {
     public static final int DEFAULT_DISRUPTOR_RING_SIZE = 1024;
     public static final int DEFAULT_MAX_ORDER_QUANTITY = 1000;
     public static final long DEFAULT_SUBSCRIBER_POLL_TIMEOUT_MS = 1;
+    public static final long DEFAULT_GATEWAY_FILL_INTERVAL_MS = 50;
 
     static {
         loadProperties();
@@ -76,5 +77,9 @@ public class OMSConfig {
 
     public static long getSubscriberPollTimeoutMs() {
         return Long.parseLong(properties.getProperty("subscriber.poll.timeout.ms", String.valueOf(DEFAULT_SUBSCRIBER_POLL_TIMEOUT_MS)));
+    }
+
+    public static long getGatewayFillIntervalMs() {
+        return Long.parseLong(properties.getProperty("gateway.fill.interval.ms", String.valueOf(DEFAULT_GATEWAY_FILL_INTERVAL_MS)));
     }
 }
