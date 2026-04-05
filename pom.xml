@@ -45,6 +45,13 @@
             <version>1.44.1</version>
         </dependency>
 
+        <!-- Aeron Samples (AeronStat) -->
+        <dependency>
+            <groupId>io.aeron</groupId>
+            <artifactId>aeron-samples</artifactId>
+            <version>1.44.1</version>
+        </dependency>
+
         <!-- Disruptor -->
         <dependency>
             <groupId>com.lmax</groupId>

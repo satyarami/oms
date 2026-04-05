@@ -1,11 +1,13 @@
-o ui and package com.satya.oms.gateway;
+package com.satya.oms.gateway;
 
 import org.agrona.DirectBuffer;
 
 /**
  * Callback interface for receiving SBE-encoded gateway responses.
- * All buffers contain SBE messages (with message header) starting at the given offset.
+ * All buffers contain SBE messages (with message header) starting at the given
+ * offset.
  */
+
 public interface GatewayListener {
 
     /** Called when the gateway acknowledges an order (AckEvent). */
