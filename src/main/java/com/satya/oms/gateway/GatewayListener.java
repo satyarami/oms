@@ -1,4 +1,4 @@
-o ui and package com.satya.oms.gateway;
+package com.satya.oms.gateway;
 
 import org.agrona.DirectBuffer;
 
